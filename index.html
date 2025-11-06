@@ -1,66 +1,220 @@
 <!doctype html>
 <html lang="fr">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Dariow • Démo chat</title>
-  <style>
-    :root { color-scheme: light; }
-    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;margin:0;background:#f7f7f8}
-    .wrap{max-width:720px;margin:0 auto;padding:16px}
-    .card{background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.06)}
-    .head{padding:12px 16px;border-bottom:1px solid #eee;font-weight:600;display:flex;justify-content:space-between;align-items:center}
-    .chat{height:60vh;overflow:auto;padding:16px}
-    .msg{margin:8px 0;display:flex}
-    .me .bubble{margin-left:auto;background:#e6f0ff}
-    .bot .bubble{margin-right:auto;background:#f1f5f9}
-    .bubble{max-width:70%;padding:10px 12px;border-radius:12px;white-space:pre-wrap}
-    .bar{display:flex;gap:8px;padding:12px;border-top:1px solid #eee;background:#fafafa}
-    input{flex:1;padding:10px;border:1px solid #ddd;border-radius:8px}
-    button{padding:10px 14px;border:0;border-radius:8px;background:#0ea5e9;color:#fff;font-weight:600;cursor:pointer}
-    button:disabled{opacity:.6;cursor:not-allowed}
-    #reset{background:#ef4444}
-    .typing{display:flex;gap:4px;align-items:center;opacity:0.7}
-    .dot{width:6px;height:6px;background:#333;border-radius:50%;animation:blink 1s infinite}
-    .dot:nth-child(2){animation-delay:0.2s}
-    .dot:nth-child(3){animation-delay:0.4s}
-    @keyframes blink{0%,80%,100%{opacity:0.3}40%{opacity:1}}
-  </style>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>WhatsApp • Dariow</title>
+<style>
+  /* =========================
+     Thèmes (clair/sombre auto)
+     ========================= */
+  :root{
+    --wa-green:#075E54; --wa-green-dark:#064a43;
+    --bg:#0a0f12; --phone:#111b21; --chat:#0b141a;
+    --me:#005c4b; --bot:#202c33; --text:#e9edef; --muted:#8696a0;
+    --accent:#25D366; --border:#0f1a20;
+  }
+  @media (prefers-color-scheme: light){
+    :root{
+      --wa-green:#128C7E; --wa-green-dark:#0e6f65;
+      --bg:#e7ecef; --phone:#ffffff; --chat:#f0f2f5;
+      --me:#d9fdd3; --bot:#ffffff; --text:#111b21; --muted:#667781;
+      --accent:#25D366; --border:#e3e5e7;
+    }
+  }
+
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial}
+  .wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:16px}
+
+  /* Cadre type téléphone */
+  .phone{width:390px;max-width:100%;height:780px;border:10px solid #222;border-radius:36px;background:var(--phone);box-shadow:0 10px 40px rgba(0,0,0,.5);position:relative;overflow:hidden}
+  @media (prefers-color-scheme: light){
+    .phone{border-color:#bbb; box-shadow:0 10px 40px rgba(0,0,0,.15)}
+  }
+  .notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:160px;height:28px;background:#000;border-bottom-left-radius:16px;border-bottom-right-radius:16px;z-index:3}
+
+  /* En-tête WhatsApp */
+  .header{height:64px;background:var(--wa-green);display:flex;align-items:center;gap:12px;padding:10px 12px 10px 16px;position:relative;z-index:2;color:#e9edef}
+  .avatar{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font-weight:800;background:#cfe8da;color:#075E54;border:2px solid rgba(255,255,255,.25)}
+  @media (prefers-color-scheme: light){
+    .avatar{background:#e0f3ea;color:#0e6f65;border-color:rgba(0,0,0,.05)}
+  }
+  .avatar span{font-family:ui-sans-serif,system-ui; font-size:18px; transform:translateY(-1px)}
+  .title{display:flex;flex-direction:column;line-height:1.1}
+  .name{font-weight:600}
+  .status{font-size:12px;color:#d2f1e4}
+  .actions{margin-left:auto;display:flex;gap:14px;opacity:.95}
+  .btn-icon{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;cursor:pointer;transition:.15s background}
+  .btn-icon:hover{background:rgba(255,255,255,.18)}
+  .ico{font-size:16px;line-height:1}
+
+  /* Zone de chat */
+  .chat{position:absolute;top:64px;bottom:70px;left:0;right:0;background:var(--chat);overflow:auto;padding:10px}
+  .time-divider{display:flex;justify-content:center;margin:10px 0}
+  .pill{background:rgba(127,127,127,.15);color:var(--muted);font-size:12px;padding:4px 10px;border-radius:999px}
+  .row{display:flex;margin:6px 8px}
+  .bubble{max-width:75%;padding:8px 9px;border-radius:10px;position:relative;white-space:pre-wrap;color:var(--text)}
+  .me .bubble{margin-left:auto;background:var(--me)}
+  .bot .bubble{margin-right:auto;background:var(--bot)}
+  /* petites “queues” de bulle */
+  .me .bubble:after{content:"";position:absolute;right:-6px;bottom:0;border-width:6px 0 0 6px;border-style:solid;border-color:var(--me) transparent;display:block;width:0}
+  .bot .bubble:before{content:"";position:absolute;left:-6px;bottom:0;border-width:6px 6px 0 0;border-style:solid;border-color:var(--bot) transparent;display:block;width:0}
+  .meta{display:flex;gap:6px;align-items:center;margin-top:4px;font-size:11px;color:var(--muted)}
+  .ticks{display:inline-block;transform:translateY(1px);opacity:.9}
+  .ticks::after{content:"✔✔"}
+
+  /* Animation "écrit…" */
+  .typing{display:flex;gap:4px;align-items:center}
+  .dot{width:6px;height:6px;background:#cfd9de;border-radius:50%;animation:blink 1s infinite}
+  .dot:nth-child(2){animation-delay:.2s}
+  .dot:nth-child(3){animation-delay:.4s}
+  @keyframes blink{0%,80%,100%{opacity:.25}40%{opacity:1}}
+
+  /* Barre de saisie */
+  .composer{position:absolute;left:0;right:0;bottom:0;height:70px;background:var(--chat);display:flex;align-items:center;gap:8px;padding:10px 12px;border-top:1px solid var(--border)}
+  .box{flex:1;display:flex;align-items:center;background:#1f2c33;border-radius:22px;padding:8px 10px}
+  @media (prefers-color-scheme: light){ .box{background:#ffffff;border:1px solid var(--border)} }
+  .box input{flex:1;background:transparent;border:0;color:var(--text);font-size:15px;outline:none}
+  .send{width:42px;height:42px;border-radius:50%;display:grid;place-items:center;background:var(--accent);cursor:pointer;color:#042f1a;font-weight:900}
+  .send:active{transform:scale(.98)}
+</style>
 </head>
 <body>
-  <div class="wrap">
-    <div class="card">
-      <div class="head">
-        💬 Dariow — Démo chat
-        <button id="reset">🔄 Nouvelle discussion</button>
+<div class="wrap">
+  <div class="phone">
+    <div class="notch"></div>
+    <div class="header">
+      <div class="avatar"><span>D</span></div>
+      <div class="title">
+        <div class="name">Dariow</div>
+        <div class="status" id="status">En ligne</div>
       </div>
-      <div id="chat" class="chat"></div>
-      <div class="bar">
-        <input id="inp" placeholder="Écrivez votre message…" autocomplete="off" />
-        <button id="send">Envoyer</button>
+      <div class="actions">
+        <div class="btn-icon" title="Appel audio"><span class="ico">📞</span></div>
+        <div class="btn-icon" title="Appel vidéo"><span class="ico">🎥</span></div>
+        <!-- (optionnel) menu -->
       </div>
     </div>
+
+    <div class="chat" id="chat">
+      <div class="time-divider"><div class="pill">Aujourd’hui</div></div>
+    </div>
+
+    <div class="composer">
+      <div class="box">
+        <input id="inp" placeholder="Message" autocomplete="off" />
+      </div>
+      <div class="send" id="send" title="Envoyer">➤</div>
+    </div>
   </div>
+</div>
 
-  <script>
-    // 🔗 REMPLACE ICI par l’URL de ton webhook n8n (prod, pas /webhook-test/)
-    const WEBHOOK_URL = "https://dariow.app.n8n.cloud/webhook/dariow-comm"
+<script>
+  // ⚠️ Remplace par ton webhook n8n PROD (pas /webhook-test/)
+  const WEBHOOK_URL = "https://dariow.app.n8n.cloud/webhook/dariow-comm";
 
-    const chat = document.getElementById("chat");
-    const inp = document.getElementById("inp");
-    const btn = document.getElementById("send");
-    const resetBtn = document.getElementById("reset");
+  const chat = document.getElementById("chat");
+  const inp = document.getElementById("inp");
+  const sendBtn = document.getElementById("send");
+  const statusEl = document.getElementById("status");
 
-    // Session persistante pour la mémoire n8n
-    let sessionId = localStorage.getItem("dariow-session");
-    if (!sessionId) {
-      sessionId = "web:" + Math.random().toString(36).slice(2);
-      localStorage.setItem("dariow-session", sessionId);
+ 
+  // 2) Session persistante (mémoire n8n)
+  let sessionId = localStorage.getItem("dariow-session");
+  if (!sessionId) {
+    sessionId = "wa:" + Math.random().toString(36).slice(2);
+    localStorage.setItem("dariow-session", sessionId);
+  }
+
+  function timeNow(){
+    const d=new Date(),h=String(d.getHours()).padStart(2,"0"),m=String(d.getMinutes()).padStart(2,"0");
+    return `${h}:${m}`;
+  }
+
+  function addBubble(text, who="bot", withTicks=false) {
+    const row = document.createElement("div");
+    row.className = "row " + who;
+    const bubble = document.createElement("div");
+    bubble.className = "bubble";
+    bubble.textContent = text;
+    row.appendChild(bubble);
+
+    const meta = document.createElement("div");
+    meta.className = "meta";
+    meta.innerHTML = `<span>${timeNow()}</span>`;
+    if (who === "me" && withTicks) {
+      const ticks = document.createElement("span");
+      ticks.className = "ticks";
+      meta.appendChild(ticks);
     }
+    row.appendChild(meta);
 
-    // Affiche un message (bot/me)
-    function addMsg(text, who="bot", id="") {
-      const row = document.createElement("div");
+    chat.appendChild(row);
+    chat.scrollTop = chat.scrollHeight;
+    return row;
+  }
+
+  function addTyping(id) {
+    const row = document.createElement("div");
+    row.className = "row bot";
+    row.id = id;
+    const bubble = document.createElement("div");
+    bubble.className = "bubble";
+    const dots = document.createElement("div");
+    dots.className = "typing";
+    dots.innerHTML = `<div class="dot"></div><div class="dot"></div><div class="dot"></div>`;
+    bubble.appendChild(dots);
+    row.appendChild(bubble);
+    chat.appendChild(row);
+    chat.scrollTop = chat.scrollHeight;
+  }
+  function removeTyping(id) {
+    const el = document.getElementById(id);
+    if (el) el.remove();
+  }
+
+  async function sendMessage() {
+    const text = inp.value.trim();
+    if (!text) return;
+
+    addBubble(text, "me", true);
+    inp.value = "";
+
+    statusEl.textContent = "écrit…";
+    const typingId = "typing-" + Date.now();
+    addTyping(typingId);
+
+    try {
+      const body = new URLSearchParams();
+      body.append("text", text);
+      body.append("sessionId", sessionId);
+
+      const res = await fetch(WEBHOOK_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body
+      });
+
+      const reply = await res.text();
+      removeTyping(typingId);
+      statusEl.textContent = "En ligne";
+      addBubble(reply || "(aucune réponse)");
+    } catch (e) {
+      removeTyping(typingId);
+      statusEl.textContent = "En ligne";
+      addBubble("⚠️ Erreur réseau : " + e.message);
+    }
+  }
+
+  sendBtn.addEventListener("click", sendMessage);
+  inp.addEventListener("keydown", (e) => { if (e.key === "Enter") sendMessage(); });
+
+  // Messages d’accueil
+  addBubble("Bonjour 👋\nVous discutez avec Dariow", "bot");
+</script>
+</body>
+</html>      const row = document.createElement("div");
       row.className = "msg " + who;
       const bubble = document.createElement("div");
       bubble.className = "bubble";
@@ -145,4 +299,3 @@
   </script>
 </body>
 </html>
-
