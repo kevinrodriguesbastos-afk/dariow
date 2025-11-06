@@ -5,9 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>WhatsApp • Dariow</title>
 <style>
-  /* =========================
-     Thèmes (clair/sombre auto)
-     ========================= */
+  /* Thèmes (clair/sombre auto) */
   :root{
     --wa-green:#075E54; --wa-green-dark:#064a43;
     --bg:#0a0f12; --phone:#111b21; --chat:#0b141a;
@@ -24,15 +22,26 @@
   }
 
   *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial}
-  .wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:16px}
+  html,body{height:100%;margin:0}
+  body{background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;overflow:hidden}
 
-  /* Cadre type téléphone */
-  .phone{width:390px;max-width:100%;height:780px;border:10px solid #222;border-radius:36px;background:var(--phone);box-shadow:0 10px 40px rgba(0,0,0,.5);position:relative;overflow:hidden}
+  .wrap{
+    height:100svh; /* prend la hauteur “visible” du mobile */
+    display:flex;align-items:center;justify-content:center;padding:16px
+  }
+
+  /* Cadre type téléphone : on le fait tenir dans l’écran */
+  .phone{
+    width:390px;max-width:100%;
+    height:calc(100svh - 32px); /* 32px = padding .wrap */
+    max-height:780px;
+    border:10px solid #222;border-radius:36px;background:var(--phone);
+    box-shadow:0 10px 40px rgba(0,0,0,.5);position:relative;overflow:hidden
+  }
   @media (prefers-color-scheme: light){
     .phone{border-color:#bbb; box-shadow:0 10px 40px rgba(0,0,0,.15)}
   }
-  .notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:160px;height:28px;background:#000;border-bottom-left-radius:16px;border-bottom-right-radius:16px;z-index:3}
+  .notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:110px;height:18px;background:#000;border-bottom-left-radius:12px;border-bottom-right-radius:12px;z-index:3}
 
   /* En-tête WhatsApp */
   .header{height:64px;background:var(--wa-green);display:flex;align-items:center;gap:12px;padding:10px 12px 10px 16px;position:relative;z-index:2;color:#e9edef}
@@ -51,15 +60,28 @@
 
   /* Zone de chat */
   .chat{position:absolute;top:64px;bottom:70px;left:0;right:0;background:var(--chat);overflow:auto;padding:10px}
-  .time-divider{display:flex;justify-content:center;margin:10px 0}
+
+  /* Bandeau sticky “Recommencer” */
+  .restart{
+    position:sticky; top:2px; z-index:1; display:flex; justify-content:center; margin-bottom:12px;
+  }
+  .restart .pill{
+    cursor:pointer; user-select:none;
+    background:rgba(127,127,127,.15); color:var(--muted);
+    font-size:12px; padding:6px 10px; border-radius:999px; border:1px solid rgba(127,127,127,.2)
+  }
+  .restart .pill:hover{opacity:.9}
+
+  .time-divider{display:flex;justify-content:center;margin:12px 0 6px}
   .pill{background:rgba(127,127,127,.15);color:var(--muted);font-size:12px;padding:4px 10px;border-radius:999px}
+
   .row{display:flex;margin:6px 8px}
   .bubble{max-width:75%;padding:8px 9px;border-radius:10px;position:relative;white-space:pre-wrap;color:var(--text)}
   .me .bubble{margin-left:auto;background:var(--me)}
   .bot .bubble{margin-right:auto;background:var(--bot)}
-  /* petites “queues” de bulle */
   .me .bubble:after{content:"";position:absolute;right:-6px;bottom:0;border-width:6px 0 0 6px;border-style:solid;border-color:var(--me) transparent;display:block;width:0}
   .bot .bubble:before{content:"";position:absolute;left:-6px;bottom:0;border-width:6px 6px 0 0;border-style:solid;border-color:var(--bot) transparent;display:block;width:0}
+
   .meta{display:flex;gap:6px;align-items:center;margin-top:4px;font-size:11px;color:var(--muted)}
   .ticks{display:inline-block;transform:translateY(1px);opacity:.9}
   .ticks::after{content:"✔✔"}
@@ -88,16 +110,17 @@
       <div class="avatar"><span>D</span></div>
       <div class="title">
         <div class="name">Dariow</div>
-        <div class="status" id="status">En ligne</div>
+        <div class="status" id="status">en ligne</div> <!-- toujours "en ligne" -->
       </div>
       <div class="actions">
         <div class="btn-icon" title="Appel audio"><span class="ico">📞</span></div>
         <div class="btn-icon" title="Appel vidéo"><span class="ico">🎥</span></div>
-        <!-- (optionnel) menu -->
       </div>
     </div>
 
     <div class="chat" id="chat">
+      <!-- Lien sticky “Recommencer” -->
+      <div class="restart"><div class="pill" id="restartBtn">↻ Recommencer la discussion</div></div>
       <div class="time-divider"><div class="pill">Aujourd’hui</div></div>
     </div>
 
@@ -112,15 +135,15 @@
 
 <script>
   // ⚠️ Remplace par ton webhook n8n PROD (pas /webhook-test/)
-  const WEBHOOK_URL = "https://dariow.app.n8n.cloud/webhook/dariow-comm";
+  const WEBHOOK_URL = "https://dariow.app.n8n.cloud/webhook/chat-demo";
 
   const chat = document.getElementById("chat");
   const inp = document.getElementById("inp");
   const sendBtn = document.getElementById("send");
   const statusEl = document.getElementById("status");
+  const restartBtn = document.getElementById("restartBtn");
 
- 
-  // 2) Session persistante (mémoire n8n)
+  // Session persistante (mémoire n8n)
   let sessionId = localStorage.getItem("dariow-session");
   if (!sessionId) {
     sessionId = "wa:" + Math.random().toString(36).slice(2);
@@ -181,6 +204,8 @@
     addBubble(text, "me", true);
     inp.value = "";
 
+    // On garde "en ligne" par défaut, on peut afficher "écrit…" pendant le traitement
+    const previous = statusEl.textContent;
     statusEl.textContent = "écrit…";
     const typingId = "typing-" + Date.now();
     addTyping(typingId);
@@ -198,20 +223,42 @@
 
       const reply = await res.text();
       removeTyping(typingId);
-      statusEl.textContent = "En ligne";
+      statusEl.textContent = "en ligne";
       addBubble(reply || "(aucune réponse)");
     } catch (e) {
       removeTyping(typingId);
-      statusEl.textContent = "En ligne";
+      statusEl.textContent = previous || "en ligne";
       addBubble("⚠️ Erreur réseau : " + e.message);
     }
   }
 
+  function startConversation() {
+    // vide les bulles mais laisse le bandeau “Recommencer” et le divider
+    chat.innerHTML = `
+      <div class="restart"><div class="pill" id="restartBtn">↻ Recommencer la discussion</div></div>
+      <div class="time-divider"><div class="pill">Aujourd’hui</div></div>
+    `;
+    // rebind du bouton
+    document.getElementById("restartBtn").addEventListener("click", resetSession);
+
+    addBubble("Bonjour 👋\nBienvenue chez Dariow", "bot");
+   
+  }
+
+  function resetSession() {
+    // nouvelle session + redémarrage conversation
+    localStorage.removeItem("dariow-session");
+    sessionId = "wa:" + Math.random().toString(36).slice(2);
+    localStorage.setItem("dariow-session", sessionId);
+    startConversation();
+  }
+
   sendBtn.addEventListener("click", sendMessage);
   inp.addEventListener("keydown", (e) => { if (e.key === "Enter") sendMessage(); });
+  restartBtn.addEventListener("click", resetSession);
 
-  // Messages d’accueil
-  addBubble("Bonjour 👋\nVous discutez avec Dariow", "bot");
+  // Démarrage
+  startConversation();
 </script>
 </body>
 </html>
